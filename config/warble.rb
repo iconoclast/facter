@@ -13,6 +13,7 @@ Warbler::Config.new do |config|
 
   # Application directories to be included in the webapp.
   # config.dirs = %w(app config lib log vendor tmp)
+  config.dirs = %w(bin etc lib)
 
   # Additional files/directories to include, above those in config.dirs
   # config.includes = FileList["db"]
