@@ -2,7 +2,7 @@
 #
 # Purpose:
 #   Return the host's primary DNS domain name.
-# 
+#
 # Resolution:
 #   On UNIX (excluding Darwin), first try and use the hostname fact,
 #   which uses the hostname system command, and then parse the output
@@ -19,46 +19,50 @@
 #
 
 Facter.add(:domain) do
-    setcode do
-        # Get the domain from various sources; the order of these
-        # steps is important
+  setcode do
+    # Get the domain from various sources; the order of these
+    # steps is important
 
-        Facter.value(:hostname)
-        next $domain if defined? $domain and ! $domain.nil?
+    if name = Facter::Util::Resolution.exec('hostname') \
+      and name =~ /.*?\.(.+$)/
 
-        domain = Facter::Util::Resolution.exec('dnsdomainname')
-        next domain if domain =~ /.+\..+/
+      $1
+    elsif domain = Facter::Util::Resolution.exec('dnsdomainname') \
+      and domain =~ /.+\..+/
 
-        if FileTest.exists?("/etc/resolv.conf")
-            domain = nil
-            search = nil
-            File.open("/etc/resolv.conf") { |file|
-                file.each { |line|
-                    if line =~ /domain\s+(\S+)/
-                        domain = $1
-                    elsif line =~ /search\s+(\S+)/
-                        search = $1
-                    end
-                }
-            }
-            next domain if domain
-            next search if search
-        end
-        nil
+      domain
+    elsif FileTest.exists?("/etc/resolv.conf")
+      domain = nil
+      search = nil
+      File.open("/etc/resolv.conf") { |file|
+        file.each { |line|
+          if line =~ /^\s*domain\s+(\S+)/
+            domain = $1
+          elsif line =~ /^\s*search\s+(\S+)/
+            search = $1
+          end
+        }
+      }
+      next domain if domain
+      next search if search
     end
+  end
 end
 
 Facter.add(:domain) do
-    confine :kernel => :windows
-    setcode do
-        require 'win32ole'
-        domain = ""
-        wmi = WIN32OLE.connect("winmgmts://")
-        query = "select DNSDomain from Win32_NetworkAdapterConfiguration where IPEnabled = True"
-        wmi.ExecQuery(query).each { |nic|
-            domain = nic.DNSDomain
-            break
-        }
-        domain
+  confine :kernel => :windows
+  setcode do
+    require 'facter/util/registry'
+    domain = ""
+    regvalue = Facter::Util::Registry.hklm_read('SYSTEM\CurrentControlSet\Services\Tcpip\Parameters', 'Domain')
+    domain = regvalue if regvalue
+    if domain == ""
+      require 'facter/util/wmi'
+      Facter::Util::WMI.execquery("select DNSDomain from Win32_NetworkAdapterConfiguration where IPEnabled = True").each { |nic|
+        domain = nic.DNSDomain
+        break
+      }
     end
+    domain
+  end
 end

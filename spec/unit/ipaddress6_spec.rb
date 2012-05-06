@@ -1,12 +1,13 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env rspec
 
-$basedir = File.expand_path(File.dirname(__FILE__) + '/..')
-require File.join($basedir, 'spec_helper')
-
-require 'facter'
+require 'spec_helper'
 
 def ifconfig_fixture(filename)
-  ifconfig = File.new(File.join($basedir, 'fixtures', 'ifconfig', filename)).read
+  File.read(fixtures('ifconfig', filename))
+end
+
+def netsh_fixture(filename)
+  File.read(fixtures('netsh', filename))
 end
 
 describe "IPv6 address fact" do
@@ -38,5 +39,14 @@ describe "IPv6 address fact" do
     Facter.value(:ipaddress6).should == "2610:10:20:209:203:baff:fe27:a7c"
   end
 
-  it "should return ipaddress6 information for Windows"
+  it "should return ipaddress6 information for Windows" do
+    ENV.stubs(:[]).with('SYSTEMROOT').returns('d:/windows')
+    Facter::Util::Config.stubs(:is_windows?).returns(true)
+
+    fixture = netsh_fixture('windows_netsh_addresses_with_multiple_interfaces')
+    Facter::Util::Resolution.stubs(:exec).with('d:/windows/system32/netsh interface ipv6 show address level=verbose').
+      returns(fixture)
+
+    Facter.value(:ipaddress6).should == "2001:0:4137:9e76:2087:77a:53ef:7527"
+  end
 end

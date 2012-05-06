@@ -1,8 +1,22 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env rspec
 
-require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
-
+require 'spec_helper'
 require 'facter/util/macaddress'
+
+describe "standardized MAC address" do
+  it "should have zeroes added if missing" do
+    Facter::Util::Macaddress::standardize("0:ab:cd:e:12:3").should == "00:ab:cd:0e:12:03"
+  end
+
+  it "should be identical if each octet already has two digits" do
+    Facter::Util::Macaddress::standardize("00:ab:cd:0e:12:03").should == "00:ab:cd:0e:12:03"
+  end
+
+  it "should be nil if input is nil" do
+    proc { result = Facter::Util::Macaddress.standardize(nil) }.should_not raise_error
+    Facter::Util::Macaddress.standardize(nil).should be_nil
+  end
+end
 
 describe "Darwin", :unless => Facter.value(:operatingsystem) == 'windows' do
   test_cases = [
@@ -14,8 +28,8 @@ describe "Darwin", :unless => Facter.value(:operatingsystem) == 'windows' do
   ]
 
   test_cases.each do |version, default_iface, macaddress, fallback_macaddress|
-    netstat_file = File.join(SPECDIR, "fixtures", "netstat", "darwin_#{version.tr('.', '_')}")
-    ifconfig_file_no_iface = File.join(SPECDIR, "fixtures", "ifconfig", "darwin_#{version.tr('.', '_')}")
+    netstat_file = fixtures("netstat", "darwin_#{version.tr('.', '_')}")
+    ifconfig_file_no_iface = fixtures("ifconfig", "darwin_#{version.tr('.', '_')}")
     ifconfig_file = "#{ifconfig_file_no_iface}_#{default_iface}"
 
     describe "version #{version}" do
@@ -64,5 +78,22 @@ describe "Darwin", :unless => Facter.value(:operatingsystem) == 'windows' do
         end
       end
     end
+  end
+end
+
+describe "Windows" do
+  it "should return the first macaddress" do
+    Facter.fact(:kernel).stubs(:value).returns("windows")
+
+    nic = stubs 'nic'
+    nic.stubs(:MacAddress).returns("00:0C:29:0C:9E:9F")
+
+    nic2 = stubs 'nic'
+    nic2.stubs(:MacAddress).returns("00:0C:29:0C:9E:AF")
+
+    require 'facter/util/wmi'
+    Facter::Util::WMI.stubs(:execquery).with("select MACAddress from Win32_NetworkAdapterConfiguration where IPEnabled = True").returns([nic, nic2])
+
+    Facter.fact(:macaddress).value.should == "00:0C:29:0C:9E:9F"
   end
 end
