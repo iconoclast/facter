@@ -13,12 +13,27 @@
 ## Facts related to EnergyIP
 ##
 require 'facter'
+require 'facter/util/config'
 
 Facter.add(:pipe_home) do
   setcode do
     @home_pipe = ENV['PIPE_HOME'] || ('/home/pipe' if File.directory? '/home/pipe')
   end
 end
+
+## Env Vars
+['bin/EnvSetup.sh'].each do |sh_script|
+  @home_pipe ||= Facter.value(:pipe_home) || '/home/pipe'
+  sh_path = File.join(@home_pipe, sh_script)
+  next unless File.exists? sh_path
+
+  env_vars = `#{sh_path} 2>/dev/null; env`
+  env_vars.split.each do |line|
+    key, val = line.chomp.split('=')
+    next unless key && val
+    Facter.add('eip_env_' + key.strip) {setcode {val.strip}}
+  end
+end unless Facter::Util::Config.is_windows?
 
 # Facter.add(:eip_version) do
 #   setcode do
@@ -80,7 +95,7 @@ end
   if ENV[var]
     Facter.add(var.downcase) do
       setcode do
-        ENV[var]
+        Facter.value('eip_env_#{var.downcase}') || ENV[var]
       end
     end
   end
