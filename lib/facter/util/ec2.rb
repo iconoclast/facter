@@ -14,10 +14,10 @@ module Facter::Util::EC2
       url = "http://169.254.169.254:80/"
       Timeout::timeout(wait_sec) {open(url)}
       return true
-      rescue Timeout::Error
-        return false
-      rescue
-        return false
+    rescue Timeout::Error
+      return false
+    rescue
+      return false
     end
 
     # Test if this host has a mac address used by Eucalyptus clouds, which
@@ -36,21 +36,66 @@ module Facter::Util::EC2
     # Test if the host has an arp entry in its cache that matches the EC2 arp,
     # which is normally +fe:ff:ff:ff:ff:ff+.
     def has_ec2_arp?
-      mac_address = "fe:ff:ff:ff:ff:ff"
-      if Facter.value(:kernel) == 'windows'
-        arp_command = "arp -a"
-        mac_address.gsub!(":","-")
-      else
-        arp_command = "arp -an"
-      end
+      kernel = Facter.value(:kernel)
 
-      arp_table = Facter::Util::Resolution.exec(arp_command)
-      if not arp_table.nil?
-        arp_table.each_line do |line|
-          return true if line.downcase.include?(mac_address)
-        end
+      mac_address_re = case kernel
+                       when /Windows/i
+                         /fe-ff-ff-ff-ff-ff/i
+                       else
+                         /fe:ff:ff:ff:ff:ff/i
+                       end
+
+      arp_command = case kernel
+                    when /Windows/i, /SunOS/i
+                      "arp -a"
+                    else
+                      "arp -an"
+                    end
+
+      if arp_table = Facter::Util::Resolution.exec(arp_command)
+        return true if arp_table.match(mac_address_re)
       end
       return false
     end
   end
+
+  ##
+  # userdata returns a single string containing the body of the response of the
+  # GET request for the URI http://169.254.169.254/latest/user-data/  If the
+  # metadata server responds with a 404 Not Found error code then this method
+  # retuns `nil`.
+  #
+  # @param version [String] containing the API version for the request.
+  # Defaults to "latest" and other examples are documented at
+  # http://aws.amazon.com/archives/Amazon%20EC2
+  #
+  # @api public
+  #
+  # @return [String] containing the response body or `nil`
+  def self.userdata(version="latest")
+    uri = "http://169.254.169.254/#{version}/user-data/"
+    begin
+      read_uri(uri)
+    rescue OpenURI::HTTPError => detail
+      case detail.message
+      when /404 Not Found/i
+        Facter.debug "No user-data present at #{uri}: server responded with #{detail.message}"
+        return nil
+      else
+        raise detail
+      end
+    end
+  end
+
+  ##
+  # read_uri provides a seam method to easily test the HTTP client
+  # functionality of a HTTP based metadata server.
+  #
+  # @api private
+  #
+  # @return [String] containing the body of the response
+  def self.read_uri(uri)
+    open(uri).read
+  end
+  private_class_method :read_uri
 end

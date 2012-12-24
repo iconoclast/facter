@@ -24,6 +24,10 @@ Facter.add(:osfamily) do
       "Suse"
     when "Solaris", "Nexenta", "OmniOS", "OpenIndiana", "SmartOS"
       "Solaris"
+    when "Gentoo"
+      "Gentoo"
+    when "Archlinux"
+      "Archlinux"
     else
       Facter.value("kernel")
     end

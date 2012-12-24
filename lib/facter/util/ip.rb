@@ -8,20 +8,23 @@ module Facter::Util::IP
       :ipaddress  => /inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/,
       :ipaddress6 => /inet6 addr: ((?![fe80|::1])(?>[0-9,a-f,A-F]*\:{1,2})+[0-9,a-f,A-F]{0,4})/,
       :macaddress => /(?:ether|HWaddr)\s+((\w{1,2}:){5,}\w{1,2})/,
-      :netmask  => /Mask:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/
+      :netmask  => /Mask:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/,
+      :mtu  => /MTU:(\d+)/
     },
     :bsd   => {
       :aliases  => [:openbsd, :netbsd, :freebsd, :darwin, :"gnu/kfreebsd", :dragonfly],
       :ipaddress  => /inet\s+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/,
       :ipaddress6 => /inet6 ((?![fe80|::1])(?>[0-9,a-f,A-F]*\:{1,2})+[0-9,a-f,A-F]{0,4})/,
       :macaddress => /(?:ether|lladdr)\s+(\w?\w:\w?\w:\w?\w:\w?\w:\w?\w:\w?\w)/,
-      :netmask  => /netmask\s+0x(\w{8})/
+      :netmask  => /netmask\s+0x(\w{8})/,
+      :mtu => /mtu\s+(\d+)/
     },
     :sunos => {
       :ipaddress  => /inet\s+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/,
       :ipaddress6 => /inet6 ((?![fe80|::1])(?>[0-9,a-f,A-F]*\:{1,2})+[0-9,a-f,A-F]{0,4})/,
       :macaddress => /(?:ether|lladdr)\s+(\w?\w:\w?\w:\w?\w:\w?\w:\w?\w:\w?\w)/,
-      :netmask  => /netmask\s+(\w{8})/
+      :netmask  => /netmask\s+(\w{8})/,
+      :mtu => /mtu\s+(\d+)/
     },
     :"hp-ux" => {
       :ipaddress  => /\s+inet (\S+)\s.*/,
@@ -78,7 +81,14 @@ module Facter::Util::IP
     when 'SunOS'
       output = %x{/usr/sbin/ifconfig -a}
     when 'HP-UX'
-      output = %x{/bin/netstat -in | sed -e 1d}
+      # (#17487)[https://projects.puppetlabs.com/issues/17487]
+      # Handle NIC bonding where asterisks and virtual NICs are printed.
+      if output = hpux_netstat_in
+        output.gsub!(/\*/, "")                  # delete asterisks.
+        output.gsub!(/^[^\n]*none[^\n]*\n/, "") # delete lines with 'none' instead of IPs.
+        output.sub!(/^[^\n]*\n/, "")            # delete the header line.
+        output
+      end
     when 'windows'
       output = %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ip show interface|
       output += %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ipv6 show interface|
@@ -86,10 +96,25 @@ module Facter::Util::IP
     output
   end
 
+  ##
+  # get_ifconfig simply delegates to the ifconfig command.
+  #
+  # @return [String] the output of `/sbin/ifconfig 2>/dev/null` or nil
+  def self.get_ifconfig
+    Facter::Util::Resolution.exec("/sbin/ifconfig 2>/dev/null")
+  end
+
+  ##
+  # hpux_netstat_in is a delegate method that allows us to stub netstat -in
+  # without stubbing exec.
+  def self.hpux_netstat_in
+    Facter::Util::Resolution.exec("/bin/netstat -in")
+  end
+
   def self.get_infiniband_macaddress(interface)
-    if File::exist?("/sys/class/net/#{interface}/address") then
+    if File.exists?("/sys/class/net/#{interface}/address") then
       ib_mac_address = `cat /sys/class/net/#{interface}/address`.chomp
-    elsif File::exist?("/sbin/ip") then
+    elsif File.exists?("/sbin/ip") then
       ip_output = %x{/sbin/ip link show #{interface}}
       ib_mac_address = ip_output.scan(%r{infiniband\s+((\w{1,2}:){5,}\w{1,2})})
     else
@@ -120,12 +145,20 @@ module Facter::Util::IP
       output = %x{/usr/sbin/ifconfig #{interface}}
     when 'HP-UX'
        mac = ""
-       ifc = %x{/usr/sbin/ifconfig #{interface}}
-       %x{/usr/sbin/lanscan}.scan(/(\dx\S+).*UP\s+(\w+\d+)/).each {|i| mac = i[0] if i.include?(interface) }
+       ifc = hpux_ifconfig_interface(interface)
+       hpux_lanscan.scan(/(\dx\S+).*UP\s+(\w+\d+)/).each {|i| mac = i[0] if i.include?(interface) }
        mac = mac.sub(/0x(\S+)/,'\1').scan(/../).join(":")
        output = ifc + "\n" + mac
     end
     output
+  end
+
+  def self.hpux_ifconfig_interface(interface)
+    Facter::Util::Resolution.exec("/usr/sbin/ifconfig #{interface}")
+  end
+
+  def self.hpux_lanscan
+    Facter::Util::Resolution.exec("/usr/sbin/lanscan")
   end
 
   def self.get_output_for_interface_and_label(interface, label)
@@ -165,6 +198,19 @@ module Facter::Util::IP
     device
   end
 
+  ##
+  # get_interface_value obtains the value of a specific attribute of a specific
+  # interface.
+  #
+  # @param interface [String] the interface identifier, e.g. "eth0" or "bond0"
+  #
+  # @param label [String] the attribute of the interface to obtain a value for,
+  # e.g. "netmask" or "ipaddress"
+  #
+  # @api private
+  #
+  # @return [String] representing the requested value.  An empty array is
+  # returned if the kernel is not supported by the REGEX_MAP constant.
   def self.get_interface_value(interface, label)
     tmp1 = []
 
@@ -183,9 +229,11 @@ module Facter::Util::IP
     # We have to dig a bit to get the original/real MAC address of the interface.
     bonddev = get_bonding_master(interface)
     if label == 'macaddress' and bonddev
-      bondinfo = IO.readlines("/proc/net/bonding/#{bonddev}")
-      hwaddrre = /^Slave Interface: #{interface}\n[^\n].+?\nPermanent HW addr: (([0-9a-fA-F]{2}:?)*)$/m
-      value = hwaddrre.match(bondinfo.to_s)[1].upcase
+      bondinfo = read_proc_net_bonding("/proc/net/bonding/#{bonddev}")
+      re = /^Slave Interface: #{interface}\b.*?\bPermanent HW addr: (([0-9A-F]{2}:?)*)$/im
+      if match = re.match(bondinfo)
+        value = match[1].upcase
+      end
     else
       output_int = get_output_for_interface_and_label(interface, label)
 
@@ -204,6 +252,19 @@ module Facter::Util::IP
       end
     end
   end
+
+  ##
+  # read_proc_net_bonding is a seam method for mocking purposes.
+  #
+  # @param path [String] representing the path to read, e.g. "/proc/net/bonding/bond0"
+  #
+  # @api private
+  #
+  # @return [String] modeling the raw file read
+  def self.read_proc_net_bonding(path)
+    File.read(path) if File.exists?(path)
+  end
+  private_class_method :read_proc_net_bonding
 
   def self.get_network_value(interface)
     require 'ipaddr'
