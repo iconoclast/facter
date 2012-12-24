@@ -11,6 +11,11 @@ require 'rspec'
 require 'facter'
 require 'fileutils'
 require 'puppetlabs_spec_helper'
+require 'pathname'
+
+Pathname.glob("#{dir}/shared_contexts/*.rb") do |file|
+  require file.relative_path_from(Pathname.new(dir))
+end
 
 RSpec.configure do |config|
   config.mock_with :mocha
@@ -32,5 +37,14 @@ RSpec.configure do |config|
     @old_env.each_pair {|k, v| ENV[k] = v}
     to_remove = ENV.keys.reject {|key| @old_env.include? key }
     to_remove.each {|key| ENV.delete key }
+  end
+end
+
+module FacterSpec
+  module ConfigHelper
+    def given_a_configuration_of(config)
+      Facter::Util::Config.stubs(:is_windows?).returns(config[:is_windows])
+      Facter::Util::Config.stubs(:external_facts_dir).returns(config[:external_facts_dir] || "data_dir")
+    end
   end
 end

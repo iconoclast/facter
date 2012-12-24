@@ -1,62 +1,54 @@
 # Rakefile for facter
 
-$: << File.expand_path('lib')
+# We need access to the Puppet.version method
+$LOAD_PATH.unshift(File.expand_path("lib"))
+require 'facter/version'
+
 $LOAD_PATH << File.join(File.dirname(__FILE__), 'tasks')
 
 require 'rubygems'
 require 'rspec'
 require 'rspec/core/rake_task'
+require 'rake'
+
 begin
   require 'rcov'
 rescue LoadError
 end
 
 Dir['tasks/**/*.rake'].each { |t| load t }
+Dir['ext/packaging/tasks/**/*'].sort.each { |t| load t }
 
-require 'rake'
-require 'rake/packagetask'
-require 'rake/gempackagetask'
+build_defs_file = 'ext/build_defaults.yaml'
+if File.exist?(build_defs_file)
+  begin
+    require 'yaml'
+    @build_defaults ||= YAML.load_file(build_defs_file)
+  rescue Exception => e
+    STDERR.puts "Unable to load yaml from #{build_defs_file}:"
+    STDERR.puts e
+  end
+  @packaging_url  = @build_defaults['packaging_url']
+  @packaging_repo = @build_defaults['packaging_repo']
+  raise "Could not find packaging url in #{build_defs_file}" if @packaging_url.nil?
+  raise "Could not find packaging repo in #{build_defs_file}" if @packaging_repo.nil?
 
-module Facter
-  FACTERVERSION = File.read('lib/facter.rb')[/FACTERVERSION *= *'(.*)'/,1] or fail "Couldn't find FACTERVERSION"
-end
-
-FILES = FileList[
-  '[A-Z]*',
-  'install.rb',
-  'bin/**/*',
-  'lib/**/*',
-  'conf/**/*',
-  'etc/**/*',
-  'spec/**/*'
-]
-
-spec = Gem::Specification.new do |spec|
-  spec.platform = Gem::Platform::RUBY
-  spec.name = 'facter'
-  spec.files = FILES.to_a
-  spec.executables = %w{facter}
-  spec.version = Facter::FACTERVERSION
-  spec.summary = 'Facter, a system inventory tool'
-  spec.description = 'You can prove anything with facts!'
-  spec.author = 'Puppet Labs'
-  spec.email = 'info@puppetlabs.com'
-  spec.homepage = 'http://puppetlabs.com'
-  spec.rubyforge_project = 'facter'
-  spec.has_rdoc = true
-  spec.rdoc_options <<
-    '--title' <<  'Facter - System Inventory Tool' <<
-    '--main' << 'README' <<
-    '--line-numbers'
-end
-
-Rake::PackageTask.new("facter", Facter::FACTERVERSION) do |pkg|
-  pkg.package_dir = 'pkg'
-  pkg.need_tar_gz = true
-  pkg.package_files = FILES.to_a
-end
-
-Rake::GemPackageTask.new(spec) do |pkg|
+  namespace :package do
+    desc "Bootstrap packaging automation, e.g. clone into packaging repo"
+    task :bootstrap do
+      if File.exist?("ext/#{@packaging_repo}")
+        puts "It looks like you already have ext/#{@packaging_repo}. If you don't like it, blow it away with package:implode."
+      else
+        cd 'ext' do
+          %x{git clone #{@packaging_url}}
+        end
+      end
+    end
+    desc "Remove all cloned packaging automation"
+    task :implode do
+      rm_rf "ext/#{@packaging_repo}"
+    end
+  end
 end
 
 task :default do
@@ -64,11 +56,11 @@ task :default do
 end
 
 # Aliases for spec
-task :test    => [:spec]
-task :tests   => [:spec]
-task :specs   => [:spec]
+task :tests   => [:test]
+task :specs   => [:test]
 
-RSpec::Core::RakeTask.new do |t|
+desc "Run all specs"
+RSpec::Core::RakeTask.new(:test) do |t|
   t.pattern ='spec/{unit,integration}/**/*_spec.rb'
   t.fail_on_error = true
 end

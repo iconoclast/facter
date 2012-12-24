@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 
 require 'spec_helper'
 
@@ -10,9 +10,12 @@ def netsh_fixture(filename)
   File.read(fixtures('netsh', filename))
 end
 
+
 describe "IPv6 address fact" do
+  include FacterSpec::ConfigHelper
+
   before do
-    Facter::Util::Config.stubs(:is_windows?).returns(false)
+    given_a_configuration_of(:is_windows => false)
   end
 
   it "should return ipaddress6 information for Darwin" do
@@ -25,7 +28,7 @@ describe "IPv6 address fact" do
 
   it "should return ipaddress6 information for Linux" do
     Facter::Util::Resolution.stubs(:exec).with('uname -s').returns('Linux')
-    Facter::Util::Resolution.stubs(:exec).with('/sbin/ifconfig').
+    Facter::Util::Resolution.stubs(:exec).with('/sbin/ifconfig 2>/dev/null').
       returns(ifconfig_fixture('linux_ifconfig_all_with_multiple_interfaces'))
 
     Facter.value(:ipaddress6).should == "2610:10:20:209:212:3fff:febe:2201"
@@ -41,10 +44,10 @@ describe "IPv6 address fact" do
 
   it "should return ipaddress6 information for Windows" do
     ENV.stubs(:[]).with('SYSTEMROOT').returns('d:/windows')
-    Facter::Util::Config.stubs(:is_windows?).returns(true)
+    given_a_configuration_of(:is_windows => true)
 
     fixture = netsh_fixture('windows_netsh_addresses_with_multiple_interfaces')
-    Facter::Util::Resolution.stubs(:exec).with('d:/windows/system32/netsh interface ipv6 show address level=verbose').
+    Facter::Util::Resolution.stubs(:exec).with('d:/windows/system32/netsh.exe interface ipv6 show address level=verbose').
       returns(fixture)
 
     Facter.value(:ipaddress6).should == "2001:0:4137:9e76:2087:77a:53ef:7527"

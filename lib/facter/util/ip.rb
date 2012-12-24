@@ -7,7 +7,7 @@ module Facter::Util::IP
     :linux => {
       :ipaddress  => /inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/,
       :ipaddress6 => /inet6 addr: ((?![fe80|::1])(?>[0-9,a-f,A-F]*\:{1,2})+[0-9,a-f,A-F]{0,4})/,
-      :macaddress => /(?:ether|HWaddr)\s+(\w{1,2}:\w{1,2}:\w{1,2}:\w{1,2}:\w{1,2}:\w{1,2})/,
+      :macaddress => /(?:ether|HWaddr)\s+((\w{1,2}:){5,}\w{1,2})/,
       :netmask  => /Mask:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/
     },
     :bsd   => {
@@ -74,23 +74,48 @@ module Facter::Util::IP
   def self.get_all_interface_output
     case Facter.value(:kernel)
     when 'Linux', 'OpenBSD', 'NetBSD', 'FreeBSD', 'Darwin', 'GNU/kFreeBSD', 'DragonFly'
-      output = %x{/sbin/ifconfig -a}
+      output = %x{/sbin/ifconfig -a 2>/dev/null}
     when 'SunOS'
       output = %x{/usr/sbin/ifconfig -a}
     when 'HP-UX'
       output = %x{/bin/netstat -in | sed -e 1d}
     when 'windows'
-      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh interface ip show interface|
-      output += %x|#{ENV['SYSTEMROOT']}/system32/netsh interface ipv6 show interface|
+      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ip show interface|
+      output += %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ipv6 show interface|
     end
     output
+  end
+
+  def self.get_infiniband_macaddress(interface)
+    if File::exist?("/sys/class/net/#{interface}/address") then
+      ib_mac_address = `cat /sys/class/net/#{interface}/address`.chomp
+    elsif File::exist?("/sbin/ip") then
+      ip_output = %x{/sbin/ip link show #{interface}}
+      ib_mac_address = ip_output.scan(%r{infiniband\s+((\w{1,2}:){5,}\w{1,2})})
+    else
+      ib_mac_address = "FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF"
+      Facter.debug("ip.rb: nothing under /sys/class/net/#{interface}/address and /sbin/ip not available")
+    end
+    ib_mac_address
+  end
+
+  def self.ifconfig_interface(interface)
+    %x{/sbin/ifconfig #{interface} 2>/dev/null}
   end
 
   def self.get_single_interface_output(interface)
     output = ""
     case Facter.value(:kernel)
-    when 'Linux', 'OpenBSD', 'NetBSD', 'FreeBSD', 'Darwin', 'GNU/kFreeBSD', 'DragonFly'
-      output = %x{/sbin/ifconfig #{interface}}
+    when 'OpenBSD', 'NetBSD', 'FreeBSD', 'Darwin', 'GNU/kFreeBSD', 'DragonFly'
+      output = Facter::Util::IP.ifconfig_interface(interface)
+    when 'Linux'
+      ifconfig_output = Facter::Util::IP.ifconfig_interface(interface)
+      if interface =~ /^ib/ then
+        real_mac_address = get_infiniband_macaddress(interface)
+        output = ifconfig_output.sub(%r{(?:ether|HWaddr)\s+((\w{1,2}:){5,}\w{1,2})}, "HWaddr #{real_mac_address}")
+      else
+        output = ifconfig_output
+      end
     when 'SunOS'
       output = %x{/usr/sbin/ifconfig #{interface}}
     when 'HP-UX'
@@ -107,9 +132,9 @@ module Facter::Util::IP
     return get_single_interface_output(interface) unless Facter.value(:kernel) == 'windows'
 
     if label == 'ipaddress6'
-      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh interface ipv6 show address \"#{interface}\"|
+      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ipv6 show address \"#{interface}\"|
     else
-      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh interface ip show address \"#{interface}\"|
+      output = %x|#{ENV['SYSTEMROOT']}/system32/netsh.exe interface ip show address \"#{interface}\"|
     end
     output
   end
@@ -190,13 +215,6 @@ module Facter::Util::IP
       ip = IPAddr.new(ipaddress, Socket::AF_INET)
       subnet = IPAddr.new(netmask, Socket::AF_INET)
       network = ip.mask(subnet.to_s).to_s
-    end
-  end
-
-  def self.get_arp_value(interface)
-    arp = Facter::Util::Resolution.exec("arp -en -i #{interface} | sed -e 1d")
-    if arp =~ /^\S+\s+\w+\s+(\S+)\s+\w\s+\S+$/
-     return $1
     end
   end
 end

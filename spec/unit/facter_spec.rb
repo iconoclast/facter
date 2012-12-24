@@ -1,13 +1,8 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 
 require 'spec_helper'
 
 describe Facter do
-
-  it "should have a version" do
-    Facter.version.should =~ /^[0-9]+(\.[0-9]+)*$/
-  end
-
   it "should have a method for returning its collection" do
     Facter.should respond_to(:collection)
   end
@@ -74,8 +69,9 @@ describe Facter do
 
   describe "when provided code as a string" do
     it "should execute the code in the shell" do
+      test_command = Facter::Util::Config.is_windows? ? 'cmd.exe /c echo yup' : 'echo yup'
       Facter.add("shell_testing") do
-        setcode "echo yup"
+        setcode test_command
       end
 
       Facter["shell_testing"].value.should == "yup"

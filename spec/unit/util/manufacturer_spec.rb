@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 
 require 'spec_helper'
 require 'facter/util/manufacturer'
@@ -121,6 +121,16 @@ Handle 0x001F
     query = { 'Physical Memory Array' => [ { 'Location:' => 'ramlocation'}]}
     Facter::Manufacturer.dmi_find_system_info(query)
     Facter.value(:ramlocation).should == "System Board Or Motherboard"
+  end
+
+  it "should return an appropriate uuid on linux" do
+    Facter.fact(:kernel).stubs(:value).returns("Linux")
+    dmidecode = my_fixture_read("intel_linux_dmidecode")
+    Facter::Manufacturer.expects(:get_dmi_table).returns(dmidecode)
+   
+    query = { '[Ss]ystem [Ii]nformation' => [ { 'UUID:' => 'uuid' } ] }
+    Facter::Manufacturer.dmi_find_system_info(query)
+    Facter.value(:uuid).should == "60A98BB3-95B6-E111-AF74-4C72B9247D28"
   end
 
   def find_product_name(os)

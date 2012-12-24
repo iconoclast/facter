@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 
 require 'spec_helper'
 
@@ -16,11 +16,13 @@ describe "Processor facts" do
     def load(procs)
       require 'facter/util/wmi'
       Facter::Util::WMI.stubs(:execquery).with("select * from Win32_Processor").returns(procs)
+      # This is to workaround #14674
+      Facter.fact(:architecture).stubs(:value).returns("x64")
 
       # processor facts belong to a file with a different name,
       # so load the file explicitly (after stubbing kernel),
       # but we have to stub execquery first
-      Facter.collection.loader.load(:processor)
+      Facter.collection.internal_loader.load(:processor)
     end
 
     describe "2003" do
@@ -66,7 +68,7 @@ describe "Processor facts" do
 
   describe "on Solaris" do
     before :each do
-      Facter.collection.loader.load(:processor)
+      Facter.collection.internal_loader.load(:processor)
       Facter.fact(:kernel).stubs(:value).returns(:sunos)
     end
 
@@ -85,7 +87,7 @@ describe "Processor facts" do
 
   describe "on Unixes" do
     before :each do
-      Facter.collection.loader.load(:processor)
+      Facter.collection.internal_loader.load(:processor)
     end
 
     it "should be 1 in SPARC fixture" do
@@ -183,6 +185,21 @@ describe "Processor facts" do
 
       Facter.fact(:processorcount).value.should == "2"
     end
+
+    it "should be 2 on dual-processor FreeBSD box" do
+      Facter.fact(:kernel).stubs(:value).returns("FreeBSD")
+      Facter::Util::Resolution.stubs(:exec).with("sysctl -n hw.ncpu").returns('2')
+
+      Facter.fact(:processorcount).value.should == "2"
+    end
+
+    it "should print the correct CPU Model on FreeBSD" do
+      Facter.fact(:kernel).stubs(:value).returns("FreeBSD")
+      Facter::Util::Resolution.stubs(:exec).with("sysctl -n hw.model").returns('SomeVendor CPU 3GHz')
+
+      Facter.fact(:processor).value.should == "SomeVendor CPU 3GHz"
+    end
+
 
     it "should be 2 on dual-processor DragonFly box" do
       Facter.fact(:kernel).stubs(:value).returns("DragonFly")

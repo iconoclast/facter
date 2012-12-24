@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'facter/version'
+
 module Facter
   # This is just so the other classes have the constant.
   module Util; end
@@ -25,7 +27,6 @@ module Facter
   include Comparable
   include Enumerable
 
-  FACTERVERSION = '1.6.9'
   # = Facter
   # Functions as a hash of 'facts' you might care about about your
   # system, such as mac address, IP address, Video card, etc.
@@ -44,19 +45,17 @@ module Facter
   @@debug = 0
   @@timing = 0
   @@messages = {}
+  @@debug_messages = {}
 
   # module methods
 
   def self.collection
     unless defined?(@collection) and @collection
-      @collection = Facter::Util::Collection.new
+      @collection = Facter::Util::Collection.new(
+        Facter::Util::Loader.new,
+        Facter::Util::Config.ext_fact_loader)
     end
     @collection
-  end
-
-  # Return the version of the library.
-  def self.version
-    return FACTERVERSION
   end
 
   # Add some debugging
@@ -66,6 +65,14 @@ module Facter
     end
     if self.debugging?
       puts GREEN + string + RESET
+    end
+  end
+
+  # Debug once.
+  def self.debugonce(msg)
+    if msg and not msg.empty? and @@debug_messages[msg].nil?
+      @@debug_messages[msg] = true
+      debug(msg)
     end
   end
 
@@ -80,6 +87,17 @@ module Facter
 
   def self.timing?
     @@timing != 0
+  end
+
+  # Facter.json? is meant to provide a lightweight way to check if the JSON
+  # "feature" is available.
+  def self.json?
+    begin
+      require 'json'
+      true
+    rescue LoadError
+      false
+    end
   end
 
   # Return a fact object by name.  If you use this, you still have to call

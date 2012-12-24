@@ -15,15 +15,19 @@ sestatus_cmd = '/usr/sbin/sestatus'
 # This supports the fact that the selinux mount point is not always in the
 # same location -- the selinux mount point is operating system specific.
 def selinux_mount_point
-  if FileTest.exists?('/proc/self/mountinfo')
-    File.open('/proc/self/mountinfo') do |f|
-      f.grep(/selinuxfs/) do |line|
-        line.split[4]
-      end
+  path = "/selinux"
+  if FileTest.exists?('/proc/self/mounts')
+    # Centos 5 shows an error in which having ruby use File.read to read
+    # /proc/self/mounts combined with the puppet agent run with --listen causes
+    # a hang. Reading from other parts of /proc does not seem to cause this problem.
+    # The work around is to read the file in another process.
+    # -- andy Fri Aug 31 2012
+    selinux_line = Facter::Util::Resolution.exec('cat /proc/self/mounts').lines.find { |line| line =~ /selinuxfs/ }
+    if selinux_line
+      path = selinux_line.split[1]
     end
-  else
-    "/selinux"
   end
+  path
 end
 
 Facter.add("selinux") do
@@ -56,7 +60,11 @@ end
 Facter.add("selinux_policyversion") do
   confine :selinux => :true
   setcode do
-    File.read("#{selinux_mount_point}/policyvers")
+    result = 'unknown'
+    if FileTest.exists?("#{selinux_mount_point}/policyvers")
+      result = File.read("#{selinux_mount_point}/policyvers").chomp
+    end
+    result
   end
 end
 

@@ -21,7 +21,7 @@ Facter.add(:operatingsystemrelease) do
   confine :operatingsystem => %w{CentOS Fedora oel ovs OracleLinux RedHat MeeGo Scientific SLC Ascendos CloudLinux PSBM}
   setcode do
     case Facter.value(:operatingsystem)
-    when "CentOS", "RedHat", "Scientific", "SLC", "Ascendos", "CloudLinux", "PSBM"
+    when "CentOS", "RedHat", "Scientific", "SLC", "Ascendos", "CloudLinux", "PSBM", "XenServer"
       releasefile = "/etc/redhat-release"
     when "Fedora"
       releasefile = "/etc/fedora-release"
@@ -149,7 +149,7 @@ Facter.add(:operatingsystemrelease) do
 end
 
 Facter.add(:operatingsystemrelease) do
-  confine :operatingsystem => :solaris
+  confine :osfamily => :solaris
   setcode do
     release = File.open('/etc/release','r') {|f| f.readline.chomp}
     if match = /\s+s(\d+)[sx]?(_u\d+)?.*(?:SPARC|X86)/.match(release)

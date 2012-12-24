@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 
 require 'spec_helper'
 
@@ -61,7 +61,7 @@ describe "Operating System Release fact" do
 
     before :each do
       Facter.fact(:kernel).stubs(:value).returns('SunOS')
-      Facter.fact(:operatingsystem).stubs(:value).returns('Solaris')
+      Facter.fact(:osfamily).stubs(:value).returns('Solaris')
     end
 
     {

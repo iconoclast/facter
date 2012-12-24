@@ -1,3 +1,128 @@
+1.6.12
+===
+398b111 (Maint) Extract common elements of selinux tests
+c534126 (#10819) Avoid reading from /proc/self/mounts in ruby
+b95ea54 fix yum repo path in yaml file
+3ad05f1 Remove version test from facter
+fce4b01 fix redhat spec release template variable
+903b1d9 Stop using sed to generate the preflight erb
+601a967 Use git read-only packaging repo for public access
+dd3401e Fixup apple packaging
+e0454df Remove libexec from file list as its only in 2.x
+1e7f5b3 Update debhelper compat to 7, add format
+6659e61 Fixup redhat spec erb template for f17
+6752530 Shift to using packaging repo
+fe311c2 Remove obsolete tasks directory
+900895f Group requires together
+8c18e33 Move facter redhat spec file to erb
+84f8e10 Add debian build artifacts to facter project
+d2d3baf Replace rake/gempackagetask with rubygems/gempackagetask
+6f58b4e Move tasks out of 'rake' subdirectory
+db9d154 Move packaging files to ext, rm conf
+c0cbe62 (#15464) Make Facter.version settable via Facter.version=
+0b49eae (#15464) Make contributing easy via bundle Gemfile
+bf6ee4f Retabbed conf/redhat/facter.spec to lineup tag contents.
+defbfb8 (#15291) Add Vendor tag to Facter spec file
+17243bb Update facter redhat spec for fedora 17
+7ca9122 Update a facter build-requires for f17
+d5d2328 (#11640) Added support for new OpenStack MAC addresses
+
+1.6.11
+===
+f75e46e Add build-requires of ruby-rdoc for manpage generation
+e9e084f (Maint) Update CONTRIBUTING.md to match Puppet
+841b99a (#15687) Selinux: Test for policyvers before reading it
+10aa3aa (#15049) Return only one selinuxfs path as string from mounts
+f7f90e4 Update version nos to match Facter development
+ab87a2c Modify facter spec to work with Ruby 1.9
+
+1.6.10
+===
+d6a3e91 Make package task depend on tar in Rakfile
+f42896d (#14764) Stub architecture fact when Windows facts run on Linux
+f44ca52 (maint) Fix hardware model fact for ruby 1.9
+964d1f0 (#12864) Close registry key
+ab025bb Revert "Revert "(#12864) Windows: get primary DNS from registry""
+478386d (#10261) Detect x64 architecture on Windows
+2043244 (#13678) Remove deprecation msg triggerd by the ipaddress6 fact
+d118d81 (#13678) Add filename extension on absolute paths on windows
+85654b0 (#13678) Allow passing shell built-ins to exec method on windows
+8f4c016 (#13678) Single quote paths on unix with spaces
+2d164e8 (#13678) Join PATHs correctly on windows
+e7e7e8f (#13678) Extend spec tests for expand_command
+0fea7b0 maint: Add shared context for specs to imitate windows or posix
+60d0cd2 (#13678) Fix spec failures on windows
+121a2ab (#13678) Fix quoting in expand_command
+55b1125 (#13678) Add more unit tests for new methods
+9086c0a (#13678) Add RDoc documentation for new methods
+165ace4 (#13678) Convert command to absolute paths before executing
+
+2.0.0rc3
+===
+6cc881d Use git describe in Rakefile to determine pkg ver
+653e9e0 (#14466) Fix style issues
+5a8547d (14466) Warn when no facts found
+b050eb1 (#14582) Fix noise in LSB facts
+
+2.0.0rc2
+===
+0fa58fc (#14521) Ensure install propagates licenses
+4eaa7c4 (#14521) Ensure install only strips leading lib dir
+
+2.0.0rc1
+===
+1dd50f4 Use absolute path for $LOAD_PATH in installer
+02ff878 Bump Facter version to 2.0.0 for the release.
+ffe7129 (#3909) Strip trailing dots from domain fact
+e9326d7 (#14467) Warn when removing relative paths
+fa38c60 (#14469) Strip whitespace from frozen strings
+c13a517 (maint) Fix broken Windows tests
+cb429df Partial revert of CFPropertyList migration.
+9f01fe7 (#12147) Remove Darwin 6-specific iphostnumber fact
+9810595 (#11466) Remove deprecated memorytotal fact
+4a2d358 (#6955) Remove relative dirs from fact search path
+6e7d967 (#3226) Wire up fact preserve_whitespace DSL
+3a84a0e (#3226) Strip whitespace from fact
+3168927 (#7484) Domain Fact should handle TLD
+6b9e2e5 (#7484) Domain fact should handle only TLD
+5aa2a6f (#12864) Windows: get primary DNS from registry
+635ccc4 Namespace CFPropertyList under Puppet::Util
+af682cc [#11299] Replace facter/util/plist with cfpropertylist
+2e7a108 (#12790) Raise an exception if recursion is detected
+9ff4453 Removed exclusive threading
+4581b17 (maint) removing trailing whitespace
+c80de1c (#11969) Add zfs zpool version facts.
+5273842 (#6682) Add Solaris ldom facts and update virtual detection.
+f77584f (#12311) use 'ensure' to restore env vars in Resolution.with_env
+0010a65 (#10232) Tests for VirtualBox detection via sysfs
+40efab4 fix tests for virtual detection
+976b7af fix xen0/xenu detection: https://projects.puppetlabs.com/issues/10625
+2a86219 (#11660) Adds feature SSHFP (#11659) Adds ssh spec
+4595c48 (#12012) removed extraneous nils
+9c2afdb (#12012) Fix bug with overriding LANG environment variable
+2fc1b0c (#9574) Add filesystem fact & tests
+c93922c (#12012) Fix ENV['LANG'] spec tests on Windows
+d8be0a6 (#12012) Fix ruby 1.8.5 incompatibility in new spec test
+66cbfac (#12012) Add spec unit tests for env/LANG changes
+810c465 (#12012) Remove global override of LANG environment variable
+26918b3 (#12012) Move "with_env" utility method from test code into lib code
+f47c592 (#1424) Add Solaris zonename fact.
+2bdacfb Revert "(#11660) Adds feature SSHFP"
+50f6da6 (#11660) Adds feature SSHFP
+6c8683a (#11660) Adds feature SSHFP (#11659) Adds ssh spec
+64fa8ea (maint) Fix requires for newer rspec revisions so we don't break build
+2eb4ede (#9708) Confine facts by kernel not operating system and remove confine for hardwareisa
+30e068a (#11082) Add negative tests for operatingsystemrelease
+7713d95 (#11082) Add fact operatingsystemrelease for Solaris
+844b67b (#10964) Adding the ability to directly set values
+a9140d5 (#6617) Deprecate DESTDIR environment variable for installer
+dd704c5 (#10238) Adds support for retrieving information about block devices in Linux, with tests; updated to include sizes and be more flexible for future additions
+e0cb1ae Revert "Merge branch 'ticket/10251' of git://github.com/jgrocho/facter"
+ce67c98 (#10251) Creating RC tarballs should be handled by rake.
+64770d0 Try to get VirtualBox info without dmidecode
+9df78a1 (#9929) Add support for Mageia to operatingsystem.rb and operatingsystemrelease.rb
+51cb8e2 Cleaned up Arch Linux detection routine
+
 1.6.9
 ===
 b398bd8 (#14334) Fix dmidecode based facts on DragonFly BSD
