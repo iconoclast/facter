@@ -73,6 +73,8 @@ class Facter::Util::Loader
   def valid_search_path?(path)
     return @valid_path[path] unless @valid_path[path].nil?
 
+    # jruby uses url syntax for files in jars
+    path = path.sub(/file:/, '')
     return @valid_path[path] = Pathname.new(path).absolute?
   end
   private :valid_search_path?
