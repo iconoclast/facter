@@ -41,7 +41,7 @@ class Facter::Util::Loader
 
       Dir.entries(dir).sort.each do |file|
         path = File.join(dir, file)
-        if File.directory?(path)
+        if FileTest.directory?(path)
           load_dir(path)
         elsif file =~ /\.rb$/
           load_file(File.join(dir, file))
