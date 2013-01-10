@@ -122,6 +122,9 @@ if Facter.value(:kernel) == "windows"
         processor_num = proc.NumberOfLogicalProcessors
       rescue RuntimeError => e
         processor_num = 1
+      rescue Java::OrgRacobCom::ComFailException => e
+        # this is the exception thrown with jruby on older windows machines
+        processor_num = 1
       end
 
       processor_num.times do |i|
